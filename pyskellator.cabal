@@ -5,7 +5,7 @@ name:                pyskellator
 version:             0.1.0.0
 synopsis:            Python obfuscator in Haskell
 -- description:         
-homepage:            https://github.com/Oliv95/Language-based-security-project
+homepage:            https://github.com/Oliv95/Pyskellator
 license:             MIT
 license-file:        LICENSE
 author:              Axel Olivecrona, Sarosh Nasir
