@@ -36,8 +36,7 @@ transformStatement (Assert exprs annot)                    = todo
 transformExpression :: Expr t -> Expr t
 transformExpression (Var ident annot)                            =
   (Call (Paren (Lambda [Param ident Nothing Nothing annot] (Var ident annot) annot)annot) [ArgExpr (Var ident annot) annot] annot)
-transformExpression e@(Int value lit annot)                      =
-  (Call (Paren (Lambda [] e annot) annot) [] annot)
+transformExpression e@(Int value lit annot)                      = (Call (Paren (Lambda [] e annot) annot) [] annot)
 transformExpression (Float value lit annot)                      = todo
 transformExpression (Imaginary value lit annot)                  = todo
 transformExpression (Bool value annot)                           = todo
@@ -49,8 +48,9 @@ transformExpression (Call expr args annot)                       = todo
 transformExpression (Subscript target index annot)               = todo
 transformExpression (SlicedExpr traget slices annot)             = todo
 transformExpression (CondExpr trueBranch cond falseBranch annot) = todo
-transformExpression (BinaryOp op left right annot)               = todo
-transformExpression (UnaryOp op arg annot)                       = todo
+transformExpression (BinaryOp op left right annot)               =
+  (Paren (BinaryOp op (transformExpression left) (transformExpression right) annot) annot)
+transformExpression (UnaryOp op expr annot)                      = (Paren (UnaryOp op (transformExpression expr) annot) annot)
 transformExpression (Dot expr attribute annot)                   = todo
 transformExpression (Lambda params body annot)                   = todo
 transformExpression (Tuple exprs annot)                          = todo
@@ -65,6 +65,9 @@ transformExpression (SetComp comprehension annot)                = todo
 transformExpression (Starred expr annot)                         = todo
 transformExpression (Paren expr annot)                           = (Paren (transformExpression expr) annot)
 
+transformArgument :: Argument t -> Argument t
+transformArgument (ArgExpr expr annot) = (ArgExpr (transformExpression expr) annot)
+
 transformSlice :: Slice t -> Slice t
 transformSlice (SliceProper lower upper stride annot) = todo
 transformSlice (SliceExpr expr annot)                 = todo
@@ -78,13 +81,14 @@ fb a = fst $ (\(Right x) -> x) (parseModule a "")
 
 var = (Var (Ident "x" "") "")
 i = (Int 5 "5" "")
-
+binaryOp = (BinaryOp (Plus "") var i "")
+unaryOp = Paren (UnaryOp (Minus "") (Int 2 "2" "") "") ""
+complexOp = (BinaryOp (Minus "") var (BinaryOp (Plus "") i unaryOp "") "") 
 
 stmtExtraction x = head $ unModule $ fb x 
 
 a = "x = 5\ny = 8"
 b = "x + 10"
-c = "(lambda x : x)(x)"
 
 changeAssignment (Assign x expr c) = Assign x (exprToLambda expr) c
 changeAssignment              a = a
