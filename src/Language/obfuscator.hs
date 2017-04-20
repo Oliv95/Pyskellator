@@ -49,7 +49,7 @@ transformExpression (Subscript target index annot)               = todo
 transformExpression (SlicedExpr traget slices annot)             = todo
 transformExpression (CondExpr trueBranch cond falseBranch annot) = todo
 transformExpression (BinaryOp op left right annot)               =
-  (Paren (BinaryOp op (transformExpression left) (transformExpression right) annot) annot)
+  (Call (Paren (Lambda [] (Paren (BinaryOp op (transformExpression left) (transformExpression right) annot) annot) annot) annot) [] annot)
 transformExpression (UnaryOp op expr annot)                      = (Paren (UnaryOp op (transformExpression expr) annot) annot)
 transformExpression (Dot expr attribute annot)                   = todo
 transformExpression (Lambda params body annot)                   = todo
