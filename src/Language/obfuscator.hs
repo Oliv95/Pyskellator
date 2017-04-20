@@ -79,6 +79,7 @@ transformSlice (SliceEllipsis annot)                  = todo
 f a = unModule $ fst $ (\(Right x) -> x) (parseModule a "")
 fb a = fst $ (\(Right x) -> x) (parseModule a "")
 
+ -- some variables to test with pretty and transformExpression --
 var = (Var (Ident "x" "") "")
 i = (Int 5 "5" "")
 binaryOp = (BinaryOp (Plus "") var i "")
