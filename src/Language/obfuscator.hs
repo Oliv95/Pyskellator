@@ -83,7 +83,7 @@ var = (Var (Ident "x" "") "")
 i = (Int 5 "5" "")
 binaryOp = (BinaryOp (Plus "") var i "")
 unaryOp = Paren (UnaryOp (Minus "") (Int 2 "2" "") "") ""
-complexOp = (BinaryOp (Minus "") var (BinaryOp (Plus "") i unaryOp "") "") 
+complexOp = (BinaryOp (Multiply "") var (BinaryOp (Plus "") i binaryOp "") "") 
 
 stmtExtraction x = head $ unModule $ fb x 
 
