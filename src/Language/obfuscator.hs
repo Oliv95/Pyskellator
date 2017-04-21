@@ -1,5 +1,6 @@
 import Language.Python.Common
 import Language.Python.Version3.Parser
+import qualified Data.Map as Map
 
 stmListFromSource :: String -> String -> ModuleSpan
 stmListFromSource scoure fileName = fst $ (\(Right x) -> x) (parseModule scoure fileName)
@@ -34,12 +35,17 @@ transformStatement (NonLocal vars annot)                   = todo
 transformStatement (Assert exprs annot)                    = todo
 
 transformExpression :: Expr t -> Expr t
-transformExpression (Var ident annot)                            =
-  (Call (Paren (Lambda [Param ident Nothing Nothing annot] (Var ident annot) annot)annot) [ArgExpr (Var ident annot) annot] annot)
-transformExpression e@(Int value lit annot)                      = (Call (Paren (Lambda [] e annot) annot) [] annot)
+transformExpression var@(Var ident annot) = Paren (Call lambda lambdaArgs annot) annot
+    where args = [Param ident Nothing Nothing annot]
+          body = var
+          lambda = Paren (Lambda args body annot) annot
+          lambdaArgs = [ArgExpr var annot]
+transformExpression e@(Int value lit annot)                      = Paren (Call lambda [] annot) annot
+    where lambda = Paren (Lambda [] e annot) annot
 transformExpression (Float value lit annot)                      = todo
 transformExpression (Imaginary value lit annot)                  = todo
-transformExpression (Bool value annot)                           = todo
+transformExpression (Bool True annot)                            = todo
+transformExpression (Bool False annot)                           = todo
 transformExpression (None annot)                                 = todo
 transformExpression (Ellipsis annot)                             = todo
 transformExpression (ByteStrings strings annot)                  = todo
@@ -48,8 +54,11 @@ transformExpression (Call expr args annot)                       = todo
 transformExpression (Subscript target index annot)               = todo
 transformExpression (SlicedExpr traget slices annot)             = todo
 transformExpression (CondExpr trueBranch cond falseBranch annot) = todo
-transformExpression (BinaryOp op left right annot)               =
-  (Call (Paren (Lambda [] (Paren (BinaryOp op (transformExpression left) (transformExpression right) annot) annot) annot) annot) [] annot)
+transformExpression (BinaryOp op left right annot)               = Call lambda [] annot
+    where leftExpr = Paren (transformExpression left) annot 
+          rightExpr = Paren (transformExpression right) annot
+          operation = Paren (BinaryOp op leftExpr rightExpr annot) annot
+          lambda    = Paren (Lambda [] (Paren operation annot) annot) annot
 transformExpression (UnaryOp op expr annot)                      = (Paren (UnaryOp op (transformExpression expr) annot) annot)
 transformExpression (Dot expr attribute annot)                   = todo
 transformExpression (Lambda params body annot)                   = todo
@@ -72,6 +81,16 @@ transformSlice :: Slice t -> Slice t
 transformSlice (SliceProper lower upper stride annot) = todo
 transformSlice (SliceExpr expr annot)                 = todo
 transformSlice (SliceEllipsis annot)                  = todo
+
+
+--Adds n parenthesis around and expression
+putParen exp annot = Paren exp annot
+putNParen exp annot 0 = putParen exp annot
+putNParen exp annot n = putNParen (putParen exp annot) annot (n-1)
+
+-- key, value
+-- exempel
+constants = [0,"+-1-+1+-1-+1+-1++++1+1+True*2+1-1+1"]
 
 
 
