@@ -18,3 +18,4 @@ while k + x <= 30:
 print(x)
 print(y)
 print(z)
+	
