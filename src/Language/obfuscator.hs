@@ -11,28 +11,32 @@ unModule (Module xs) = xs
 todo = error "Not implemented"
 
 transformStatement :: Statement t -> Statement t
-transformStatement (Import imorts annot)                   = todo
-transformStatement (FromImport from imports annot)         = todo
-transformStatement (While expr body whileElse annot)       = todo
-transformStatement (For vars generator body forElse annot) = todo
-transformStatement (Fun name params resAnnot body annot)   = todo
-transformStatement (Class name args body annot)            = todo
-transformStatement (Conditional condGuards condElse annot) = todo
-transformStatement (Assign target expr annot)              = todo
-transformStatement (AugmentedAssign target op expr annot)  = todo
-transformStatement (Decorated decorators definition annot) = todo
-transformStatement (Return expr annot)                     = todo
-transformStatement (Try try except tryElse finally annot)  = todo
-transformStatement (Raise expr annot)                      = todo
-transformStatement (With context body annot)               = todo
-transformStatement (Pass annot)                            = todo
-transformStatement (Break annot)                           = todo
-transformStatement (Continue annot)                        = todo
-transformStatement (Delete exprs annot)                    = todo
+transformStatement a@(Import imorts annot)                   = a
+transformStatement a@(FromImport from imports annot)         = a
+transformStatement a@(While cond body whileElse annot)       = While newCond newBody newElse annot
+            where newCond = transformExpression cond
+                  newBody = fmap transformStatement body
+                  newElse = fmap transformStatement whileElse
+transformStatement a@(For vars generator body forElse annot) = a
+transformStatement a@(Fun name params resAnnot body annot)   = Fun name params resAnnot newBody annot
+            where newBody = fmap transformStatement body
+transformStatement a@(Class name args body annot)            = a
+transformStatement a@(Conditional condGuards condElse annot) = a
+transformStatement a@(Assign target expr annot)              = (Assign target (transformExpression expr) annot)
+transformStatement a@(AugmentedAssign target op expr annot)  = a
+transformStatement a@(Decorated decorators definition annot) = a
+transformStatement a@(Return expr annot)                     = a
+transformStatement a@(Try try except tryElse finally annot)  = a
+transformStatement a@(Raise expr annot)                      = a
+transformStatement a@(With context body annot)               = a
+transformStatement a@(Pass annot)                            = a
+transformStatement a@(Break annot)                           = a
+transformStatement a@(Continue annot)                        = a
+transformStatement a@(Delete exprs annot)                    = a
 transformStatement (StmtExpr expr annot)                   = (StmtExpr (transformExpression expr) annot)
-transformStatement (Global vars annot)                     = todo
-transformStatement (NonLocal vars annot)                   = todo
-transformStatement (Assert exprs annot)                    = todo
+transformStatement a@(Global vars annot)                     = a
+transformStatement a@(NonLocal vars annot)                   = a
+transformStatement a@(Assert exprs annot)                    = a
 
 transformExpression :: Expr t -> Expr t
 transformExpression var@(Var ident annot) = Paren (Call lambda lambdaArgs annot) annot
@@ -42,36 +46,36 @@ transformExpression var@(Var ident annot) = Paren (Call lambda lambdaArgs annot)
           lambdaArgs = [ArgExpr var annot]
 transformExpression e@(Int value lit annot)                      = Paren (Call lambda [] annot) annot
     where lambda = Paren (Lambda [] e annot) annot
-transformExpression (Float value lit annot)                      = todo
-transformExpression (Imaginary value lit annot)                  = todo
-transformExpression (Bool True annot)                            = todo
-transformExpression (Bool False annot)                           = todo
-transformExpression (None annot)                                 = todo
-transformExpression (Ellipsis annot)                             = todo
-transformExpression (ByteStrings strings annot)                  = todo
-transformExpression (Strings strings annot)                      = todo
-transformExpression (Call expr args annot)                       = todo
-transformExpression (Subscript target index annot)               = todo
-transformExpression (SlicedExpr traget slices annot)             = todo
-transformExpression (CondExpr trueBranch cond falseBranch annot) = todo
+transformExpression a@(Float value lit annot)                      = a
+transformExpression a@(Imaginary value lit annot)                  = a
+transformExpression a@(Bool True annot)                            = a
+transformExpression a@(Bool False annot)                           = a
+transformExpression a@(None annot)                                 = a
+transformExpression a@(Ellipsis annot)                             = a
+transformExpression a@(ByteStrings strings annot)                  = a
+transformExpression a@(Strings strings annot)                      = a
+transformExpression a@(Call expr args annot)                       = a
+transformExpression a@(Subscript target index annot)               = a
+transformExpression a@(SlicedExpr traget slices annot)             = a
+transformExpression a@(CondExpr trueBranch cond falseBranch annot) = a
 transformExpression (BinaryOp op left right annot)               = Call lambda [] annot
-    where leftExpr = Paren (transformExpression left) annot 
+    where leftExpr  = Paren (transformExpression left) annot 
           rightExpr = Paren (transformExpression right) annot
           operation = Paren (BinaryOp op leftExpr rightExpr annot) annot
           lambda    = Paren (Lambda [] (Paren operation annot) annot) annot
 transformExpression (UnaryOp op expr annot)                      = (Paren (UnaryOp op (transformExpression expr) annot) annot)
-transformExpression (Dot expr attribute annot)                   = todo
-transformExpression (Lambda params body annot)                   = todo
-transformExpression (Tuple exprs annot)                          = todo
-transformExpression (Yield arg annot)                            = todo
-transformExpression (Generator comprehension  annot)             = todo
-transformExpression (ListComp  comprehension annot)              = todo
-transformExpression (List list annot)                            = todo
-transformExpression (Dictionary mappings annot)                  = todo
-transformExpression (DictComp comprehension annot)               = todo
-transformExpression (Set exprs annot)                            = todo
-transformExpression (SetComp comprehension annot)                = todo
-transformExpression (Starred expr annot)                         = todo
+transformExpression a@(Dot expr attribute annot)                   = a
+transformExpression a@(Lambda params body annot)                   = a
+transformExpression a@(Tuple exprs annot)                          = a
+transformExpression a@(Yield arg annot)                            = a
+transformExpression a@(Generator comprehension  annot)             = a
+transformExpression a@(ListComp  comprehension annot)              = a
+transformExpression a@(List list annot)                            = a
+transformExpression a@(Dictionary mappings annot)                  = a
+transformExpression a@(DictComp comprehension annot)               = a
+transformExpression a@(Set exprs annot)                            = a
+transformExpression a@(SetComp comprehension annot)                = a
+transformExpression a@(Starred expr annot)                         = a
 transformExpression (Paren expr annot)                           = (Paren (transformExpression expr) annot)
 
 transformArgument :: Argument t -> Argument t
@@ -90,7 +94,7 @@ putNParen exp annot n = putNParen (putParen exp annot) annot (n-1)
 
 -- key, value
 -- exempel
-constants = [0,"+-1-+1+-1-+1+-1++++1+1+True*2+1-1+1"]
+constants = (0,"+-1-+1+-1-+1+-1++++1+1+True*2+1-1+1")
 
 
 
@@ -109,6 +113,18 @@ stmtExtraction x = head $ unModule $ fb x
 
 a = "x = 5\ny = 8"
 b = "x + 10"
+
+testFile path outfile = do
+    content <- readFile path
+    let mod = unModule $ stmListFromSource content ""
+    let res = fmap transformStatement mod
+    let obfu =  unlines (fmap show (fmap pretty res))
+    putStrLn obfu
+    writeFile outfile obfu
+    return ()
+    
+    
+    
 
 changeAssignment (Assign x expr c) = Assign x (exprToLambda expr) c
 changeAssignment              a = a
