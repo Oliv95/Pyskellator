@@ -2,6 +2,7 @@ import Language.Python.Common
 import Language.Python.Version3.Parser
 import qualified Data.Map as Map
 import Data.List(intersperse)
+import System.Random
 
 stmListFromSource :: String -> String -> ModuleSpan
 stmListFromSource scoure fileName = fst $ (\(Right x) -> x) (parseModule scoure fileName)
@@ -167,7 +168,8 @@ instance Pythonable Constant where
     pythonize (UOperator op c)     = pythonize op ++ pythonize c
     pythonize (BOperator op c1 c2) = pythonize c1 ++ pythonize op ++ pythonize c2
 
-                
+randomNum :: IO Int
+randomNum = getStdRandom (randomR (0,1))                
 
 
 -- Gets the SrcSpan list from python code
