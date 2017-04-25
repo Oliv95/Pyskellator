@@ -100,9 +100,13 @@ transformArgument (ArgExpr expr annot) = (ArgExpr (transformExpression expr) ann
 transformArgument a                    = a
 
 transformSlice :: Slice t -> Slice t
-transformSlice (SliceProper lower upper stride annot) = todo
-transformSlice (SliceExpr expr annot)                 = todo
-transformSlice (SliceEllipsis annot)                  = todo
+transformSlice (SliceProper lower upper stride annot) = SliceProper nLower nUpper nStride annot
+    where nLower  = fmap transformExpression lower
+          nUpper  = fmap transformExpression upper
+          nStride = fmap (fmap transformExpression) stride
+transformSlice (SliceExpr expr annot)                 = SliceExpr nExper annot
+    where nExper = transformExpression expr
+transformSlice s = s
 
 transformDecorator :: Decorator a -> Decorator a
 transformDecorator (Decorator name args annot) = Decorator name newArgs annot
@@ -113,7 +117,8 @@ transformHandler (Handler except stms annot) = Handler except newStms annot
         where newStms = fmap transformStatement stms
 
 transformRaise :: RaiseExpr a -> RaiseExpr a
-transformRaise = id
+transformRaise (RaiseV3 raise) = RaiseV3 (fmap tr raise)
+        where tr = \(e,mbe) -> (transformExpression e,fmap transformExpression mbe)
 
 --Adds n parenthesis around and expression
 putParen exp annot = Paren exp annot
