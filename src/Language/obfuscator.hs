@@ -1,6 +1,7 @@
 import Language.Python.Common
 import Language.Python.Version3.Parser
 import qualified Data.Map as Map
+import Data.List(intersperse)
 
 stmListFromSource :: String -> String -> ModuleSpan
 stmListFromSource scoure fileName = fst $ (\(Right x) -> x) (parseModule scoure fileName)
@@ -124,6 +125,49 @@ putNParen exp annot n = putNParen (putParen exp annot) annot (n-1)
 -- exempel
 constants = (0,"+-1-+1+-1-+1+-1++++1+1+True*2+1-1+1")
 
+
+data Constant = Empty                  |
+                CNumber Int            |
+                CBoolean Bool          |
+                CList   [Constant]     |
+                CTuple  [Constant]     |
+                Parenthesis Constant   |
+                UOperator UOP Constant | 
+                BOperator BOP Constant Constant --BOP Constants need to be inside parenthesis
+
+-- Identity is +x, negate -x , comp is ~x
+data UOP = Identity | Negate | Comp
+
+-- Add is x+y, sub is x-y, Mul is x*y, LShift is x << y
+data BOP = Add | Sub | Mul | LShift
+
+class Pythonable a where
+    pythonize :: a -> String
+
+instance Pythonable BOP where
+    pythonize Add = "+"
+    pythonize Sub = "-"
+    pythonize Mul = "*"
+    pythonize LShift = "<<"
+
+instance Pythonable UOP where
+    pythonize Identity = "+"
+    pythonize Negate   = "-"
+    pythonize Comp     = "~"
+
+instance Pythonable Constant where
+    pythonize Empty                = ""
+    pythonize (CNumber n)          = show n
+    pythonize (CBoolean b)         = show b
+    pythonize (CList l)            = "bool([" ++ content ++ "])"
+            where content = concat $ intersperse "," (fmap pythonize l)
+    pythonize (CTuple t)           = "bool((" ++ content ++ "))"
+            where content = concat $ intersperse "," (fmap pythonize t)
+    pythonize (Parenthesis c)      = "(" ++ (pythonize c) ++ ")"
+    pythonize (UOperator op c)     = pythonize op ++ pythonize c
+    pythonize (BOperator op c1 c2) = pythonize c1 ++ pythonize op ++ pythonize c2
+
+                
 
 
 -- Gets the SrcSpan list from python code
