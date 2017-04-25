@@ -11,32 +11,48 @@ unModule (Module xs) = xs
 todo = error "Not implemented"
 
 transformStatement :: Statement t -> Statement t
-transformStatement a@(Import imorts annot)                   = a
-transformStatement a@(FromImport from imports annot)         = a
-transformStatement a@(While cond body whileElse annot)       = While newCond newBody newElse annot
+transformStatement (While cond body whileElse annot)         = While newCond newBody newElse annot
             where newCond = transformExpression cond
                   newBody = fmap transformStatement body
                   newElse = fmap transformStatement whileElse
-transformStatement a@(For vars generator body forElse annot) = a
-transformStatement a@(Fun name params resAnnot body annot)   = Fun name params resAnnot newBody annot
+transformStatement a@(For vars generator body forElse annot) = For vars newGen newBody newElse annot
+            where newVars = fmap transformExpression vars
+                  newGen  = transformExpression generator
+                  newBody = fmap transformStatement body
+                  newElse = fmap transformStatement forElse
+transformStatement (Fun name params resAnnot body annot)     = Fun name params resAnnot newBody annot
             where newBody = fmap transformStatement body
-transformStatement a@(Class name args body annot)            = a
-transformStatement a@(Conditional condGuards condElse annot) = a
-transformStatement a@(Assign target expr annot)              = (Assign target (transformExpression expr) annot)
-transformStatement a@(AugmentedAssign target op expr annot)  = a
-transformStatement a@(Decorated decorators definition annot) = a
-transformStatement a@(Return expr annot)                     = a
-transformStatement a@(Try try except tryElse finally annot)  = a
-transformStatement a@(Raise expr annot)                      = a
-transformStatement a@(With context body annot)               = a
-transformStatement a@(Pass annot)                            = a
-transformStatement a@(Break annot)                           = a
-transformStatement a@(Continue annot)                        = a
-transformStatement a@(Delete exprs annot)                    = a
-transformStatement (StmtExpr expr annot)                   = (StmtExpr (transformExpression expr) annot)
-transformStatement a@(Global vars annot)                     = a
-transformStatement a@(NonLocal vars annot)                   = a
-transformStatement a@(Assert exprs annot)                    = a
+transformStatement (Class name args body annot)              = Class name newArgs newBody annot
+            where newArgs = fmap transformArgument args
+                  newBody = fmap transformStatement body
+transformStatement (Conditional condGuards condElse annot)   = Conditional newGuards newElse annot
+            where newGuards = fmap transformGuard condGuards
+                  newElse   = fmap transformStatement condElse
+                  transformGuard = \(e,s) -> (transformExpression e,fmap transformStatement s)
+transformStatement (Assign target expr annot)                = (Assign target (transformExpression expr) annot)
+transformStatement (AugmentedAssign target op expr annot)    = AugmentedAssign target op newExpr annot
+            where newExpr = transformExpression expr
+transformStatement (Decorated decorators definition annot)   = Decorated newDecor newDef annot
+            where newDecor = fmap transformDecorator decorators
+                  newDef   = transformStatement definition
+transformStatement a@(Return expr annot)              = Return newExpr annot
+            where newExpr = fmap transformExpression expr
+transformStatement a@(Try try except tryElse finally annot)  = Try newTry newExcept newElse newFinally annot
+            where newTry = fmap transformStatement try
+                  newExcept = fmap transformHandler except
+                  newElse   = fmap transformStatement tryElse
+                  newFinally = fmap transformStatement finally
+transformStatement a@(Raise raise annot)                      = Raise newRaise annot
+            where newRaise = transformRaise raise
+transformStatement a@(With context body annot)               = With newContext newBody annot
+            where newContext = fmap transformContext context
+                  newBody   = fmap transformStatement body
+                  transformContext = \(e,maybeE) -> (transformExpression e,fmap transformExpression maybeE)
+transformStatement (StmtExpr expr annot)                     = (StmtExpr (transformExpression expr) annot)
+transformStatement a@(Assert exprs annot)                    = Assert newExprs annot
+            where newExprs = fmap transformExpression exprs
+transformStatement a@(Delete exprs annot)                    = a -- Not sure about this one
+transformStatement s = s
 
 transformExpression :: Expr t -> Expr t
 transformExpression var@(Var ident annot) = Paren (Call lambda lambdaArgs annot) annot
@@ -44,8 +60,9 @@ transformExpression var@(Var ident annot) = Paren (Call lambda lambdaArgs annot)
           body = var
           lambda = Paren (Lambda args body annot) annot
           lambdaArgs = [ArgExpr var annot]
-transformExpression e@(Int value lit annot)                      = Paren (Call lambda [] annot) annot
+transformExpression e@(Int value lit annot)                        = newValue
     where lambda = Paren (Lambda [] e annot) annot
+          newValue = Paren (Call lambda [] annot) annot
 transformExpression a@(Float value lit annot)                      = a
 transformExpression a@(Imaginary value lit annot)                  = a
 transformExpression a@(Bool True annot)                            = a
@@ -80,12 +97,23 @@ transformExpression (Paren expr annot)                           = (Paren (trans
 
 transformArgument :: Argument t -> Argument t
 transformArgument (ArgExpr expr annot) = (ArgExpr (transformExpression expr) annot)
+transformArgument a                    = a
 
 transformSlice :: Slice t -> Slice t
 transformSlice (SliceProper lower upper stride annot) = todo
 transformSlice (SliceExpr expr annot)                 = todo
 transformSlice (SliceEllipsis annot)                  = todo
 
+transformDecorator :: Decorator a -> Decorator a
+transformDecorator (Decorator name args annot) = Decorator name newArgs annot
+        where newArgs = fmap transformArgument args
+
+transformHandler :: Handler a -> Handler a
+transformHandler (Handler except stms annot) = Handler except newStms annot
+        where newStms = fmap transformStatement stms
+
+transformRaise :: RaiseExpr a -> RaiseExpr a
+transformRaise = id
 
 --Adds n parenthesis around and expression
 putParen exp annot = Paren exp annot
