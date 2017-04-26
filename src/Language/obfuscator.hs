@@ -3,6 +3,7 @@ import Language.Python.Version3.Parser
 import qualified Data.Map as Map
 import Data.List(intersperse)
 import System.Random
+import Test.QuickCheck
 
 stmListFromSource :: String -> String -> ModuleSpan
 stmListFromSource scoure fileName = fst $ (\(Right x) -> x) (parseModule scoure fileName)
@@ -126,22 +127,48 @@ putNParen exp annot n = putNParen (putParen exp annot) annot (n-1)
 -- exempel
 constants = (0,"+-1-+1+-1-+1+-1++++1+1+True*2+1-1+1")
 
-
-data Constant = Empty                  |
-                CNumber Int            |
+-- negative exponent, negative shift
+data Constant = CNumber Int            |
                 CBoolean Bool          |
                 CList   [Constant]     |
                 CTuple  [Constant]     |
                 Parenthesis Constant   |
                 UOperator UOP Constant | 
                 BOperator BOP Constant Constant --BOP Constants need to be inside parenthesis
+    deriving (Show,Eq)
 
 -- Identity is +x, negate -x , comp is ~x
 data UOP = Identity | Negate | Comp
+    deriving (Show,Eq)
 
 -- Add is x+y, sub is x-y, Mul is x*y, LShift is x << y
 data BOP = Add | Sub | Mul | LShift
+    deriving (Show,Eq)
 
+instance Arbitrary UOP where
+    arbitrary = elements [Identity, Negate, Comp]
+instance Arbitrary BOP where
+    arbitrary = elements [Add, Sub, Mul, LShift]
+instance Arbitrary Constant where
+    arbitrary = do
+            n <- arbitrary
+            b <- arbitrary
+            l <- arbitrary
+            uop <- arbitrary
+            bop <- arbitrary
+            c   <- arbitrary
+            c2  <- arbitrary
+            elements [CNumber n,CBoolean b,CList l,CTuple l,UOperator uop c,BOperator bop c c2,Parenthesis c]
+        
+
+test = do
+    let g = arbitrary :: Gen Constant
+    let k = resize 1 g
+    value <- generate k
+    let a = evalConstant value
+    putStrLn (pythonize value)
+    putStrLn (show a)
+        
 class Pythonable a where
     pythonize :: a -> String
 
@@ -157,7 +184,6 @@ instance Pythonable UOP where
     pythonize Comp     = "~"
 
 instance Pythonable Constant where
-    pythonize Empty                = ""
     pythonize (CNumber n)          = show n
     pythonize (CBoolean b)         = show b
     pythonize (CList l)            = "bool([" ++ content ++ "])"
@@ -166,10 +192,24 @@ instance Pythonable Constant where
             where content = concat $ intersperse "," (fmap pythonize t)
     pythonize (Parenthesis c)      = "(" ++ (pythonize c) ++ ")"
     pythonize (UOperator op c)     = pythonize op ++ pythonize c
-    pythonize (BOperator op c1 c2) = pythonize c1 ++ pythonize op ++ pythonize c2
+    pythonize (BOperator op c1 c2) = "(" ++ pythonize c1 ++ pythonize op ++ pythonize c2 ++ ")"
 
-randomNum :: IO Int
-randomNum = getStdRandom (randomR (0,1))                
+evalConstant :: Constant -> Int
+evalConstant (CNumber n)      = n
+evalConstant (CBoolean b)     = if b then 1 else 0
+evalConstant (CList l)        = if null l then 0 else 1
+evalConstant (CTuple t)       = if null t then 0 else 1
+evalConstant (Parenthesis c)  = evalConstant c
+evalConstant (UOperator op c) = case op of 
+                        Identity -> evalConstant c
+                        Negate   -> -(evalConstant c)
+                        Comp     -> (-(evalConstant c)) - 1
+evalConstant (BOperator op c c1)      = case op of
+                        Add    -> evalConstant c + evalConstant c1
+                        Sub    -> evalConstant c - evalConstant c1
+                        Mul    -> evalConstant c * evalConstant c1
+                        LShift -> (evalConstant c) * (2^(evalConstant c))
+
 
 
 -- Gets the SrcSpan list from python code
@@ -196,9 +236,9 @@ testFile path outfile = do
     putStrLn obfu
     writeFile outfile obfu
     return ()
-    
-    
-    
+
+
+
 
 changeAssignment (Assign x expr c) = Assign x (exprToLambda expr) c
 changeAssignment              a = a
