@@ -15,10 +15,10 @@ unModule (Module xs) = xs
 
 todo = error "Not implemented"
 
---transformSuite :: [Statement a] -> IO [Statement a]
+transformSuite :: [Statement SrcSpan] -> IO [Statement SrcSpan]
 transformSuite = mapM transformStatement
 
---transformStatement :: Statement t -> IO (Statement t)
+transformStatement :: Statement SrcSpan -> IO (Statement SrcSpan)
 transformStatement (While cond body whileElse annot)         = do
                   newCond <- transformExpression cond
                   newBody <- transformSuite body
@@ -37,11 +37,14 @@ transformStatement (Class name args body annot)              = do
                   newArgs <- mapM transformArgument args
                   newBody <- transformSuite body
                   return $ Class name newArgs newBody annot
---transformStatement (Conditional condGuards condElse annot)   = do
---                  let transformGuard = \(e,s) -> return $ (transformExpression e,transformSuite s)
---                  newGuards <- mapM transformGuard condGuards
---                  newElse   <- transformSuite condElse
---                  return $ Conditional newGuards newElse annot
+transformStatement (Conditional condGuards condElse annot)   = do
+                  let transformGuard (e,s) = do
+                                expr <- transformExpression e
+                                suit <- transformSuite s
+                                return (expr,suit)
+                  newGuards <- mapM transformGuard condGuards
+                  newElse   <- transformSuite condElse
+                  return $ Conditional newGuards newElse annot
 transformStatement (Assign target expr annot)                = do
             obExpr <- transformExpression expr
             return $ (Assign target obExpr annot)
@@ -64,11 +67,14 @@ transformStatement a@(Try try except tryElse finally annot)  = do
 transformStatement a@(Raise raise annot)                      = do 
             newRaise <- transformRaise raise
             return $ Raise newRaise annot
---transformStatement a@(With context body annot)               = do
---                  let transformContext = \(e,maybeE) -> (transformExpression e,mapM transformExpression maybeE)
---                  newContext <- mapM transformContext context
---                  newBody   <- transformSuite body
---                  return $ With newContext newBody annot
+transformStatement a@(With context body annot)               = do
+                  let transformContext (e,maybeE) = do
+                                    expr <- transformExpression e
+                                    mndgr <- mapM transformExpression maybeE
+                                    return (expr,mndgr)
+                  newContext <- mapM transformContext context
+                  newBody   <- transformSuite body
+                  return $ With newContext newBody annot
 transformStatement (StmtExpr expr annot)                     = do 
             obExpr <- transformExpression expr
             return $ (StmtExpr (obExpr) annot)
@@ -78,7 +84,7 @@ transformStatement a@(Assert exprs annot)                    = do
 transformStatement a@(Delete exprs annot)                    = return $ a -- Not sure about this one
 transformStatement s = return $ s
 
---transformExpression :: Expr t -> IO (Expr t)
+transformExpression :: Expr SrcSpan -> IO (Expr SrcSpan)
 transformExpression var@(Var ident annot) = do
           let args = [Param ident Nothing Nothing annot]
           let body = var
@@ -87,20 +93,29 @@ transformExpression var@(Var ident annot) = do
           return $ Paren (Call lambda lambdaArgs annot) annot
 transformExpression e@(Int value lit annot)                        = do 
           obfuConstant <- getObfuscated (fromIntegral value)
-          let parse = parseExpr (pythonize obfuConstant) ""
-          let expr  = (\(Right (exp,tl)) -> exp) parse
+          let expr  = constantTOExpr obfuConstant
           let lambda = Paren (Lambda [] expr annot) annot
           let newValue = Paren (Call lambda [] annot) annot
           return newValue
 transformExpression a@(Float value lit annot)                      = return a
 transformExpression a@(Imaginary value lit annot)                  = return a
-transformExpression a@(Bool True annot)                            = return a
-transformExpression a@(Bool False annot)                           = return a
-transformExpression a@(None annot)                                 = return a
+transformExpression a@(Bool b annot)                            = do
+                                        constant <- if b then getObfuscated 1 else getObfuscated 0
+                                        let toBool = CList [constant]
+                                        let expr   = constantTOExpr constant
+                                        let lambda = Paren (Lambda [] expr annot) annot
+                                        let newValue = Paren (Call lambda [] annot) annot
+                                        return newValue
+
+transformExpression a@(None annot)                                 = return a -- Leave these two?
 transformExpression a@(Ellipsis annot)                             = return a
-transformExpression a@(ByteStrings strings annot)                  = return a
-transformExpression a@(Strings strings annot)                      = return a
-transformExpression a@(Call expr args annot)                       = return a
+transformExpression a@(ByteStrings strings annot)                  = do
+                                    return (ByteStrings (fmap transformString strings) annot)
+transformExpression a@(Strings strings annot)                      = do 
+                                    return (Strings (fmap transformString strings) annot)
+transformExpression a@(Call expr args annot)                       = do
+                    obfuExpr <- transformExpression expr
+                    obfuArgs <- mapM transformArgument args
 transformExpression a@(Subscript target index annot)               = return a
 transformExpression a@(SlicedExpr traget slices annot)             = return a
 transformExpression a@(CondExpr trueBranch cond falseBranch annot) = return a
@@ -129,29 +144,40 @@ transformExpression (Paren expr annot)                             = do
                         obExpr <- transformExpression expr
                         return (Paren obExpr annot)
 
---transformArgument :: Argument t -> IO (Argument t)
+constantTOExpr :: Constant -> Expr SrcSpan
+constantTOExpr constant = expr
+          where parse = parseExpr (pythonize constant) ""
+                expr  = (\(Right (exp,tl)) -> exp) parse
+
+transformString :: String -> String
+transformString = todo
+
+transformArgument :: Argument SrcSpan -> IO (Argument SrcSpan)
 transformArgument (ArgExpr expr annot) = do
                     exp <- transformExpression expr
                     return (ArgExpr (exp) annot)
 transformArgument a                    = return a
 
---transformSlice :: Slice t -> Slice t
+transformSlice :: Slice SrcSpan -> Slice SrcSpan
 transformSlice (SliceProper lower upper stride annot) = todo
 transformSlice (SliceExpr expr annot)                 = todo
 transformSlice (SliceEllipsis annot)                  = todo
 
---transformDecorator :: Decorator a -> IO (Decorator a)
+transformDecorator :: Decorator SrcSpan -> IO (Decorator SrcSpan)
 transformDecorator (Decorator name args annot) = do
         newArgs <- mapM transformArgument args
         return $ Decorator name newArgs annot
 
---transformHandler :: Handler a -> IO (Handler a)
+transformHandler :: Handler SrcSpan -> IO (Handler SrcSpan)
 transformHandler (Handler except stms annot) = do 
                     newStms <- transformSuite stms
                     return $ Handler except newStms annot
 
---transformRaise :: RaiseExpr a -> IO (RaiseExpr a)
+transformRaise :: RaiseExpr SrcSpan -> IO (RaiseExpr SrcSpan)
 transformRaise = todo
+
+transformComprehension :: Comprehension :: -> IO Comprehension
+transformComprehension = todo
 
 --Adds n parenthesis around and expression
 putParen exp annot = Paren exp annot
@@ -187,7 +213,6 @@ instance Arbitrary Constant where
             uop <- arbitrary
             bop <- arbitrary
             c   <- arbitrary
-            -- make the BOP and UOP more likely
             let possibilities = [CNumber n,CBoolean b,CList l,UOperator uop c,BOperator bop c (CNumber n),Parenthesis c]
             let gens = map (\x -> elements [x]) possibilities
             let weights = [1,1,1,15,15,10]
