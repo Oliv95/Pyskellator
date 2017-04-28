@@ -116,9 +116,20 @@ transformExpression a@(Strings strings annot)                      = do
 transformExpression a@(Call expr args annot)                       = do
                     obfuExpr <- transformExpression expr
                     obfuArgs <- mapM transformArgument args
-transformExpression a@(Subscript target index annot)               = return a
-transformExpression a@(SlicedExpr traget slices annot)             = return a
-transformExpression a@(CondExpr trueBranch cond falseBranch annot) = return a
+                    return (Call obfuExpr obfuArgs annot)
+transformExpression a@(Subscript target index annot)               = do
+                    obfuTarget <- transformExpression target
+                    obfuIndex <- transformExpression index
+                    return (Subscript obfuTarget obfuIndex annot)
+transformExpression a@(SlicedExpr target slices annot)             = do
+                    obfuTarget <- transformExpression target
+                    obfuSlice  <- mapM transformSlice slices
+                    return (SlicedExpr obfuTarget obfuSlice annot)
+transformExpression a@(CondExpr trueBranch cond falseBranch annot) = do
+                    obfuTrue <- transformExpression trueBranch
+                    obfuCond <- transformExpression cond
+                    obfuFalse <- transformExpression falseBranch
+                    return (CondExpr obfuTrue obfuCond obfuFalse annot)
 transformExpression (BinaryOp op left right annot)               = do 
           leftExpr  <- transformExpression left
           rightExpr <- transformExpression right
@@ -128,18 +139,43 @@ transformExpression (BinaryOp op left right annot)               = do
 transformExpression (UnaryOp op expr annot)                        = do 
                    obExpr <- transformExpression expr
                    return $ (Paren (UnaryOp op obExpr annot) annot)
-transformExpression a@(Dot expr attribute annot)                   = return a
-transformExpression a@(Lambda params body annot)                   = return a
-transformExpression a@(Tuple exprs annot)                          = return a
-transformExpression a@(Yield arg annot)                            = return a
-transformExpression a@(Generator comprehension  annot)             = return a
-transformExpression a@(ListComp  comprehension annot)              = return a
-transformExpression a@(List list annot)                            = return a
-transformExpression a@(Dictionary mappings annot)                  = return a
-transformExpression a@(DictComp comprehension annot)               = return a
-transformExpression a@(Set exprs annot)                            = return a
-transformExpression a@(SetComp comprehension annot)                = return a
-transformExpression a@(Starred expr annot)                         = return a
+transformExpression a@(Dot expr attribute annot)                   = do
+                   obfuExpr <- transformExpression expr
+                   return (Dot obfuExpr attribute annot)
+transformExpression a@(Lambda params body annot)                   = do
+                   obfuPara <- mapM transformParam params
+                   obfuBody <- transformExpression body
+                   return (Lambda obfuPara obfuBody annot)
+transformExpression a@(Tuple exprs annot)                          = do
+                   obfuExpr <- mapM transformExpression exprs
+                   return (Tuple obfuExpr annot)
+transformExpression a@(Yield arg annot)                            = do
+                   obfuArg <- mapM transformYield arg
+                   return (Yield obfuArg annot)
+transformExpression a@(Generator comprehension  annot)             = do
+                   obfuComp <- transformComprehension comprehension
+                   return (Generator obfuComp annot)
+transformExpression a@(ListComp  comprehension annot)              = do
+                   obfuComp <- transformComprehension comprehension
+                   return (Generator obfuComp annot)
+transformExpression a@(List list annot)                            = do
+                   obfuList <- mapM transformExpression list
+                   return (List obfuList annot)
+transformExpression a@(Dictionary mappings annot)                  = do
+                   obfuMapping <- mapM transformDictMap mappings
+                   return (Dictionary obfuMapping annot)
+transformExpression a@(DictComp comprehension annot)               = do
+                   obfuComp <- transformComprehension comprehension
+                   return (DictComp obfuComp annot)
+transformExpression a@(Set exprs annot)                            = do
+                   obfuExpr <- mapM transformExpression exprs
+                   return (Set obfuExpr annot)
+transformExpression a@(SetComp comprehension annot)                = do
+                   obfuComp <- transformComprehension comprehension
+                   return (SetComp obfuComp annot)
+transformExpression a@(Starred expr annot)                         = do
+                   obfuExpr <- transformExpression expr
+                   return (Starred obfuExpr annot)
 transformExpression (Paren expr annot)                             = do
                         obExpr <- transformExpression expr
                         return (Paren obExpr annot)
@@ -148,6 +184,15 @@ constantTOExpr :: Constant -> Expr SrcSpan
 constantTOExpr constant = expr
           where parse = parseExpr (pythonize constant) ""
                 expr  = (\(Right (exp,tl)) -> exp) parse
+
+transformDictMap :: DictMappingPair SrcSpan -> IO (DictMappingPair SrcSpan)
+transformDictMap mapping = todo
+
+transformYield :: YieldArg SrcSpan -> IO (YieldArg SrcSpan)
+transformYield = todo
+
+transformParam :: Parameter SrcSpan -> IO (Parameter SrcSpan)
+transformParam = todo
 
 transformString :: String -> String
 transformString = todo
@@ -158,7 +203,7 @@ transformArgument (ArgExpr expr annot) = do
                     return (ArgExpr (exp) annot)
 transformArgument a                    = return a
 
-transformSlice :: Slice SrcSpan -> Slice SrcSpan
+transformSlice :: Slice SrcSpan -> IO (Slice SrcSpan)
 transformSlice (SliceProper lower upper stride annot) = todo
 transformSlice (SliceExpr expr annot)                 = todo
 transformSlice (SliceEllipsis annot)                  = todo
@@ -176,7 +221,7 @@ transformHandler (Handler except stms annot) = do
 transformRaise :: RaiseExpr SrcSpan -> IO (RaiseExpr SrcSpan)
 transformRaise = todo
 
-transformComprehension :: Comprehension :: -> IO Comprehension
+transformComprehension :: Comprehension SrcSpan-> IO (Comprehension SrcSpan)
 transformComprehension = todo
 
 --Adds n parenthesis around and expression
