@@ -186,13 +186,21 @@ constantTOExpr constant = expr
                 expr  = (\(Right (exp,tl)) -> exp) parse
 
 transformDictMap :: DictMappingPair SrcSpan -> IO (DictMappingPair SrcSpan)
-transformDictMap mapping = todo
+transformDictMap (DictMappingPair expr1 expr2) = do
+                obfuExpr1 <- transformExpression expr1
+                obfuExpr2 <- transformExpression expr2
+                return (DictMappingPair obfuExpr1 obfuExpr2)
 
 transformYield :: YieldArg SrcSpan -> IO (YieldArg SrcSpan)
-transformYield = todo
+transformYield (YieldFrom expr annot) = do
+            obfuExpr <- transformExpression expr
+            return (YieldFrom obfuExpr annot)
+transformYield (YieldExpr expr) = do
+            obfuExpr <- transformExpression expr
+            return (YieldExpr obfuExpr)
 
 transformParam :: Parameter SrcSpan -> IO (Parameter SrcSpan)
-transformParam = todo
+transformParam = return --Maybe leave this one
 
 transformString :: String -> String
 transformString = todo
@@ -222,7 +230,23 @@ transformRaise :: RaiseExpr SrcSpan -> IO (RaiseExpr SrcSpan)
 transformRaise = todo
 
 transformComprehension :: Comprehension SrcSpan-> IO (Comprehension SrcSpan)
-transformComprehension = todo
+transformComprehension (Comprehension compExpr compFor annot) = do
+                obfuCompExpr <- transformComprehensionExpr compExpr
+                obfuCompFor <- transformCompFor compFor 
+                -- This one is fucked, might be pretty that fucks it up
+                return (Comprehension compExpr compFor annot)
+
+transformCompFor (CompFor exprs expr mIter annot) = do
+                obfuExprs <- mapM transformExpression exprs
+                obfuExpr  <- transformExpression expr
+                return (CompFor obfuExprs obfuExpr mIter annot)
+
+transformComprehensionExpr (ComprehensionExpr expr)   = do
+                        exp <- transformExpression expr
+                        return (ComprehensionExpr exp)
+transformComprehensionExpr (ComprehensionDict  mapping) = do 
+                        obfuMapping <- transformDictMap mapping
+                        return (ComprehensionDict obfuMapping)
 
 --Adds n parenthesis around and expression
 putParen exp annot = Paren exp annot
