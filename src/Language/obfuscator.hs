@@ -1,4 +1,5 @@
 import System.Process
+import Data.Maybe (isJust,fromJust)
 import System.IO
 import Language.Python.Common
 import Language.Python.Version3.Parser
@@ -157,7 +158,7 @@ transformExpression a@(Generator comprehension  annot)             = do
                    return (Generator obfuComp annot)
 transformExpression a@(ListComp  comprehension annot)              = do
                    obfuComp <- transformComprehension comprehension
-                   return (Generator obfuComp annot)
+                   return (ListComp obfuComp annot)
 transformExpression a@(List list annot)                            = do
                    obfuList <- mapM transformExpression list
                    return (List obfuList annot)
@@ -203,7 +204,7 @@ transformParam :: Parameter SrcSpan -> IO (Parameter SrcSpan)
 transformParam = return --Maybe leave this one
 
 transformString :: String -> String
-transformString = todo
+transformString s = s
 
 transformArgument :: Argument SrcSpan -> IO (Argument SrcSpan)
 transformArgument (ArgExpr expr annot) = do
@@ -233,14 +234,35 @@ transformComprehension :: Comprehension SrcSpan-> IO (Comprehension SrcSpan)
 transformComprehension (Comprehension compExpr compFor annot) = do
                 obfuCompExpr <- transformComprehensionExpr compExpr
                 obfuCompFor <- transformCompFor compFor 
-                -- This one is fucked, might be pretty that fucks it up
-                return (Comprehension compExpr compFor annot)
+                return (Comprehension obfuCompExpr obfuCompFor annot)
 
-transformCompFor (CompFor exprs expr mIter annot) = do
-                obfuExprs <- mapM transformExpression exprs
-                obfuExpr  <- transformExpression expr
-                return (CompFor obfuExprs obfuExpr mIter annot)
+transformCompFor :: CompFor SrcSpan -> IO (CompFor SrcSpan)
+transformCompFor (CompFor exprs expr Nothing annot) = do
+                obfuExpr <- transformExpression expr
+                return (CompFor exprs obfuExpr Nothing annot)
+transformCompFor (CompFor exprs expr (Just iter) annot) = do
+                obfuExpr <- transformExpression expr
+                obfuIter <- transformCompIter iter
+                return (CompFor exprs obfuExpr (Just obfuIter) annot)
 
+transformCompIter :: CompIter SrcSpan -> IO (CompIter SrcSpan)
+transformCompIter (IterFor compFor annot) = do
+                    obfuCompFor <- transformCompFor compFor
+                    return (IterFor obfuCompFor annot)
+
+transformCompIter (IterIf compIf annot) = do
+                    obfuCompIf <- transformCompIf compIf
+                    return (IterIf obfuCompIf annot)
+
+transformCompIf (CompIf expr Nothing annot) = do
+                    obfuExpr <- transformExpression expr
+                    return (CompIf obfuExpr Nothing annot)
+transformCompIf (CompIf expr (Just iter) annot) = do
+                    obfuExpr <- transformExpression expr
+                    obfuIter <- transformCompIter iter
+                    return (CompIf obfuExpr (Just obfuIter) annot)
+
+transformComprehensionExpr :: ComprehensionExpr SrcSpan -> IO (ComprehensionExpr SrcSpan)
 transformComprehensionExpr (ComprehensionExpr expr)   = do
                         exp <- transformExpression expr
                         return (ComprehensionExpr exp)
