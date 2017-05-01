@@ -298,13 +298,14 @@ instance Arbitrary BOP where
     arbitrary = elements [Add, Sub, Mul, LShift]
 instance Arbitrary Constant where
     arbitrary = do
+            k <- arbitrary
             n <- suchThat arbitrary (\x -> x >= 0)
             b <- arbitrary
             l <- arbitrary
             uop <- arbitrary
             bop <- arbitrary
             c   <- arbitrary
-            let possibilities = [CNumber n,CBoolean b,CList l,UOperator uop c,BOperator bop c (CNumber n),Parenthesis c]
+            let possibilities = [CNumber k,CBoolean b,CList l,UOperator uop c,BOperator bop c (CNumber n),Parenthesis c]
             let gens = map (\x -> elements [x]) possibilities
             let weights = [1,1,1,15,15,10]
             frequency $ zip weights gens
