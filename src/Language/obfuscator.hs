@@ -213,9 +213,15 @@ transformArgument (ArgExpr expr annot) = do
 transformArgument a                    = return a
 
 transformSlice :: Slice SrcSpan -> IO (Slice SrcSpan)
-transformSlice (SliceProper lower upper stride annot) = todo
-transformSlice (SliceExpr expr annot)                 = todo
-transformSlice (SliceEllipsis annot)                  = todo
+transformSlice (SliceProper lower upper stride annot) = do
+                    obfuLower <- mapM transformExpression lower
+                    obfuUppper <- mapM transformExpression upper
+                    obfuStride <- mapM (mapM transformExpression) stride
+                    return (SliceProper lower upper stride annot)
+transformSlice (SliceExpr expr annot)                 = do
+                    e <- transformExpression expr
+                    return (SliceExpr e annot)
+transformSlice (SliceEllipsis annot)                  = return (SliceEllipsis annot)
 
 transformDecorator :: Decorator SrcSpan -> IO (Decorator SrcSpan)
 transformDecorator (Decorator name args annot) = do
@@ -228,7 +234,7 @@ transformHandler (Handler except stms annot) = do
                     return $ Handler except newStms annot
 
 transformRaise :: RaiseExpr SrcSpan -> IO (RaiseExpr SrcSpan)
-transformRaise = todo
+transformRaise = return
 
 transformComprehension :: Comprehension SrcSpan-> IO (Comprehension SrcSpan)
 transformComprehension (Comprehension compExpr compFor annot) = do
