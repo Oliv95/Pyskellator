@@ -1,3 +1,5 @@
+module Language.Obfuscator where
+
 import System.Process
 import Data.Maybe (isJust,fromJust)
 import System.IO
@@ -8,8 +10,8 @@ import Data.List(intersperse)
 import System.Random
 import Test.QuickCheck
 
-stmListFromSource :: String -> String -> ModuleSpan
-stmListFromSource scoure fileName = fst $ (\(Right x) -> x) (parseModule scoure fileName)
+stmListFromSource :: String -> String -> [Statement SrcSpan]
+stmListFromSource scoure fileName = unModule $ fst $ (\(Right x) -> x) (parseModule scoure fileName)
 
 unModule :: ModuleSpan -> [Statement SrcSpan] 
 unModule (Module xs) = xs
@@ -399,9 +401,12 @@ complexOp = (BinaryOp (Multiply "") var (BinaryOp (Plus "") i binaryOp "") "")
 a = "x = 5\ny = 8"
 b = "x + 10"
 
+toPythonString :: [Statement SrcSpan] -> String
+toPythonString stms = unlines (fmap show (fmap pretty stms))
+
 testFile path outfile = do
     content <- readFile path
-    let mod = unModule $ stmListFromSource content ""
+    let mod = stmListFromSource content ""
     res <- mapM transformStatement mod
     let obfu =  unlines (fmap show (fmap pretty res))
     putStrLn obfu
