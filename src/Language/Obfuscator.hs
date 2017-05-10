@@ -10,13 +10,18 @@ import Data.List(intersperse)
 import System.Random
 import Test.QuickCheck
 
-stmListFromSource :: String -> String -> [Statement SrcSpan]
-stmListFromSource scoure fileName = unModule $ fst $ (\(Right x) -> x) (parseModule scoure fileName)
+stmListFromSource :: String -> [Statement SrcSpan]
+stmListFromSource source = unModule $ fst $ (\(Right x) -> x) (parseModule source "")
 
 unModule :: ModuleSpan -> [Statement SrcSpan] 
 unModule (Module xs) = xs
 
 todo = error "Not implemented"
+
+-- OM VI HINNER GÖR EN TRANSFORM CLASS 
+--
+class Obfuscatable a where
+    transform :: a -> IO a
 
 transformSuite :: [Statement SrcSpan] -> IO [Statement SrcSpan]
 transformSuite = mapM transformStatement
@@ -103,12 +108,12 @@ transformExpression e@(Int value lit annot)                        = do
 transformExpression a@(Float value lit annot)                      = return a
 transformExpression a@(Imaginary value lit annot)                  = return a
 transformExpression a@(Bool b annot)                            = do
-                                        constant <- if b then getObfuscated 1 else getObfuscated 0
-                                        let toBool = CList [constant]
-                                        let expr   = constantTOExpr constant
-                                        let lambda = Paren (Lambda [] expr annot) annot
-                                        let newValue = Paren (Call lambda [] annot) annot
-                                        return newValue
+          constant <- if b then getObfuscated 1 else getObfuscated 0
+          let toBool = CList [constant]
+          let expr   = constantTOExpr constant
+          let lambda = Paren (Lambda [] expr annot) annot
+          let newValue = Paren (Call lambda [] annot) annot
+          return newValue
 
 transformExpression a@(None annot)                                 = return a -- Leave these two?
 transformExpression a@(Ellipsis annot)                             = return a
@@ -183,10 +188,6 @@ transformExpression (Paren expr annot)                             = do
                         obExpr <- transformExpression expr
                         return (Paren obExpr annot)
 
-constantTOExpr :: Constant -> Expr SrcSpan
-constantTOExpr constant = expr
-          where parse = parseExpr (pythonize constant) ""
-                expr  = (\(Right (exp,tl)) -> exp) parse
 
 transformDictMap :: DictMappingPair SrcSpan -> IO (DictMappingPair SrcSpan)
 transformDictMap (DictMappingPair expr1 expr2) = do
@@ -278,18 +279,13 @@ transformComprehensionExpr (ComprehensionDict  mapping) = do
                         obfuMapping <- transformDictMap mapping
                         return (ComprehensionDict obfuMapping)
 
---Adds n parenthesis around and expression
-putParen exp annot = Paren exp annot
-putNParen exp annot 0 = putParen exp annot
-putNParen exp annot n = putNParen (putParen exp annot) annot (n-1)
 
--- negative exponent, negative shift
 data Constant = CNumber Int            |
                 CBoolean Bool          |
                 CList   [Constant]     |
                 Parenthesis Constant   |
                 UOperator UOP Constant | 
-                BOperator BOP Constant Constant --BOP Constants need to be inside parenthesis
+                BOperator BOP Constant Constant 
     deriving (Show,Eq)
 
 -- Identity is +x, negate -x , comp is ~x
@@ -304,6 +300,8 @@ instance Arbitrary UOP where
     arbitrary = elements [Identity, Negate, Comp]
 instance Arbitrary BOP where
     arbitrary = elements [Add, Sub, Mul, LShift]
+
+-- negative exponent, negative shift not allowed
 instance Arbitrary Constant where
     arbitrary = do
             k <- arbitrary
@@ -318,7 +316,13 @@ instance Arbitrary Constant where
             let weights = [1,1,1,15,15,10]
             frequency $ zip weights gens
 
+-- translates a constant to an Expr so that it fits in the AST
+constantTOExpr :: Constant -> Expr SrcSpan
+constantTOExpr constant = expr
+          where parse = parseExpr (pythonize constant) ""
+                expr  = (\(Right (exp,tl)) -> exp) parse
 
+--get an obfuscated version of the given int
 getObfuscated :: Int -> IO Constant
 getObfuscated target  = do
         let g = arbitrary :: Gen Constant
@@ -406,7 +410,7 @@ toPythonString stms = unlines (fmap show (fmap pretty stms))
 
 testFile path outfile = do
     content <- readFile path
-    let mod = stmListFromSource content ""
+    let mod = stmListFromSource content
     res <- mapM transformStatement mod
     let obfu =  unlines (fmap show (fmap pretty res))
     putStrLn obfu
