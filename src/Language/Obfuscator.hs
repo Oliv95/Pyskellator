@@ -18,11 +18,6 @@ unModule (Module xs) = xs
 
 todo = error "Not implemented"
 
--- OM VI HINNER GÖR EN TRANSFORM CLASS 
---
-class Obfuscatable a where
-    transform :: a -> IO a
-
 transformSuite :: [Statement SrcSpan] -> IO [Statement SrcSpan]
 transformSuite = mapM transformStatement
 
@@ -331,29 +326,6 @@ getObfuscated target  = do
         let value = evalConstant constant
         let diff = target - value
         return (BOperator Add (CNumber diff) constant )
-
-test2 target = do
-    c <- getObfuscated target
-    let v = evalConstant c
-    putStrLn (show target)
-    putStrLn (pythonize c)
-    putStrLn (show v)
-    evalInPython (pythonize c)
-
-test = do
-    let g = arbitrary :: Gen Constant
-    let k = resize 1 g
-    value <- generate k
-    let a = evalConstant value
-    putStrLn (show value)
-    putStrLn (pythonize value)
-    putStrLn ""
-    putStrLn (show a)
-    evalInPython (pythonize value)
-
-evalInPython expr = do
-            callCommand (cmd expr)
-cmd expr = "python3 -c \"print( "++ expr ++")\""
         
 class Pythonable a where
     pythonize :: a -> String
@@ -395,15 +367,6 @@ evalConstant (BOperator op c c1)      = case op of
 
 
 
- -- some variables to test with pretty and transformExpression --
-var = (Var (Ident "x" "") "")
-i = (Int 5 "5" "")
-binaryOp = (BinaryOp (Plus "") var i "")
-unaryOp = Paren (UnaryOp (Minus "") (Int 2 "2" "") "") ""
-complexOp = (BinaryOp (Multiply "") var (BinaryOp (Plus "") i binaryOp "") "") 
-
-a = "x = 5\ny = 8"
-b = "x + 10"
 
 toPythonString :: [Statement SrcSpan] -> String
 toPythonString stms = unlines (fmap show (fmap pretty stms))
@@ -415,4 +378,11 @@ testFile path outfile = do
     let obfu =  unlines (fmap show (fmap pretty res))
     putStrLn obfu
     writeFile outfile obfu
-  
+
+obfuscate :: String -> IO String  
+obfuscate source = do
+                let stms = stmListFromSource source
+                obfuAST <- mapM transformStatement stms
+                let code = toPythonString obfuAST
+                return code
+
